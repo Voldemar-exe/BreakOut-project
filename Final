@@ -1,0 +1,313 @@
+import pygame, os, random
+
+
+def load_image(name, colorkey=None):
+    fullname = os.path.join('data', name)
+    image = pygame.image.load(fullname).convert()
+    if colorkey is not None:
+        if colorkey == -1:
+            colorkey = image.get_at((0, 0))
+        image.set_colorkey(colorkey)
+    else:
+        image = image.convert_alpha()
+    return image
+
+
+clock = pygame.time.Clock()
+pygame.init()
+size = width, height = 800, 600
+screen = pygame.display.set_mode(size)
+all_sprites = pygame.sprite.Group()
+bricks = pygame.sprite.Group()
+ball = pygame.sprite.Group()
+game = pygame.sprite.Group()
+horizontal_borders = pygame.sprite.Group()
+vertical_borders = pygame.sprite.Group()
+score = 0
+lives = 3
+c, r = False, False
+x, y = 335, 590
+lvl = 1
+tick = 0
+pause_tick = 0
+
+
+class Plat(pygame.sprite.Sprite):
+    def __init__(self, x1, y1):
+        super().__init__(all_sprites)
+        self.add(plat)
+        self.image = pygame.transform.scale(load_image("plat.png"), (150, 6))
+        self.rect = self.image.get_rect()
+        self.rect.x = x1
+        self.rect.y = y1
+
+    def update(self):
+        if not pause:
+            global x
+            if 0 <= p[0] <= 650:
+                self.rect.x = p[0]
+                x = p[0]
+
+
+class Ball(pygame.sprite.Sprite):
+    def __init__(self, radius, x, y):
+        super().__init__(all_sprites)
+        self.radius = radius
+        self.image = pygame.Surface((2 * radius, 2 * radius), pygame.SRCALPHA, 32)
+        pygame.draw.circle(self.image, pygame.Color("red"), (radius, radius), radius)
+        self.rect = pygame.Rect(x, y, 2 * radius, 2 * radius)
+        self.add(ball)
+        self.vx = 1
+        self.vy = 1
+        self.x = x
+        self.r = radius
+
+    def update(self):
+        if not pause:
+            global x
+            self.rect = self.rect.move(self.vx, -self.vy)
+            self.x += self.vx
+            if pygame.sprite.spritecollideany(self, horizontal_borders):
+                self.vy = -self.vy
+                m.play()
+            if pygame.sprite.spritecollideany(self, vertical_borders):
+                self.vx = -self.vx
+                m.play()
+            if pygame.sprite.spritecollideany(self, plat):
+                if self.vx > 0:
+                    if self.x > x + 75:
+                        self.vy = -self.vy
+                    if self.x < x + 75:
+                        self.vx = -self.vx
+                        self.vy = -self.vy
+                    if self.x == x + 75:
+                        self.vy = -self.vy
+                else:
+                    if self.x < x + 75:
+                        self.vy = -self.vy
+                    if self.x > x + 75:
+                        self.vx = -self.vx
+                        self.vy = -self.vy
+                    if self.x == x + 75:
+                        self.vy = -self.vy
+            if pygame.sprite.spritecollide(self, bricks, False):
+                global score
+                g.play()
+                brick = pygame.sprite.spritecollide(self, bricks, False)[0]
+                bx, by, bw, bc = brick.rect.x, brick.rect.y, brick.w, brick.color
+                if by + 1 < self.rect.y < by + 29 and bx + 1 < self.rect.x < bx + bw - 1:
+                    self.vx *= -1
+                    self.vy = -self.vy
+                elif by + 1 < self.rect.y < by + 29:
+                    self.vx *= -1
+                elif bx + 1 < self.rect.x < bx + bw - 1:
+                    self.vy = -self.vy
+                else:
+                    self.vy = - self.vy
+                score += 6 - bc
+            if pygame.sprite.spritecollide(self, bricks, True):
+                g.play()
+                pass
+            if self.rect.y == height:
+                global lives
+                if lives > 1:
+                    lives -= 1
+                    respawn_player()
+                else:
+                    restart_game(True)
+
+
+class Border(pygame.sprite.Sprite):
+    # СЃС‚СЂРѕРіРѕ РІРµСЂС‚РёРєР°Р»СЊРЅС‹Р№ РёР»Рё СЃС‚СЂРѕРіРѕ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅС‹Р№ РѕС‚СЂРµР·РѕРє
+    def __init__(self, x1, y1, x2, y2):
+        super().__init__(all_sprites)
+        if x1 == x2:  # РІРµСЂС‚РёРєР°Р»СЊРЅР°СЏ СЃС‚РµРЅРєР°
+            self.add(vertical_borders)
+            self.image = pygame.Surface([1, y2 - y1])
+            self.rect = pygame.Rect(x1, y1, 1, y2 - y1)
+        else:  # РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅР°СЏ СЃС‚РµРЅРєР°
+            self.add(horizontal_borders)
+            self.image = pygame.Surface([x2 - x1, 1])
+            self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
+
+
+class Brick(pygame.sprite.Sprite):
+    def __init__(self, x, y, w, color):
+        self.w = w
+        self.color = color
+        super().__init__(all_sprites)
+        image_name = 'brick_' + str(color) + '.png'
+        self.add(bricks)
+        self.image = pygame.transform.scale(load_image(image_name), (w, 30))
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+    def update(self, *args):
+        pass
+
+    def get_coords(self):
+        return self.rect.x, self.rect.y
+
+
+class Game(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__(all_sprites)
+        self.add(game)
+        self.image = pygame.transform.scale(load_image("game.jpg"), (150, 60))
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+
+def generate_bricks():
+    bricks_array = []
+    for row in range(5):
+        unfilled = 800
+        while unfilled != 0:
+            if unfilled > 60:
+                br_width = 10 * random.randint(2, 6)
+                brick = Brick(800 - unfilled, (row + 1) * 40 + 30, br_width, row + 1)
+                unfilled = unfilled - br_width - 5
+            else:
+                if unfilled <= 5:
+                    unfilled = 0
+                else:
+                    brick = Brick(800 - unfilled, (row + 1) * 40 + 30, 800 - unfilled - 50, row + 1)
+                    unfilled = 0
+            bricks_array.append(brick)
+
+
+def draw_border():
+    pygame.draw.line(screen, pygame.Color('white'), (0, 40), (width, 40), 2)
+
+
+def draw_text():
+    font = pygame.font.Font(None, 50)
+    text1 = font.render('Score: ' + str(score), 1, (255, 255, 255))
+    screen.blit(text1, (width - 200, 2))
+    text_lives = font.render('Lives:', 1, (255, 255, 255))
+    screen.blit(text_lives, (10, 2))
+    text_lvl = font.render('Lvl.' + str(lvl), 1, (255, 255, 255))
+    screen.blit(text_lvl, (width // 2 - 30, 2))
+
+
+def draw_lives():
+    for i in range(lives):
+        pygame.draw.circle(screen, (255, 255, 255), (130 + 35 * i, 20), 15)
+
+
+def restart_game(reset):
+    global score
+    global ball1
+    global plat1
+    global lives
+    global lvl
+    plat1.kill()
+    ball1.kill()
+    file = open("highscore.txt", "r")
+    hs = int(file.read())
+    file.close()
+    if hs < score:
+        file = open("highscore.txt", "w+")
+        file.write(str(score))
+        file.close()
+    if reset:
+        score = 0
+        lvl = 1
+    else:
+        lvl += 1
+    lives = 3
+    for brick in bricks:
+        brick.kill()
+    ball1 = Ball(10, 335, 500)
+    plat1 = Plat(x, y)
+    generate_bricks()
+
+
+def respawn_player():
+    global ball1
+    global plat1
+    plat1.kill()
+    ball1.kill()
+    ball1 = Ball(10, 335, 500)
+    plat1 = Plat(x, y)
+
+
+game1 = Game(325, 150)
+game2 = Game(325, 230)
+game3 = Game(0, 540)
+running = True
+pygame.mixer.music.load('list_4.wav')
+m = pygame.mixer.Sound('boards.wav')
+g = pygame.mixer.Sound('plat.wav')
+c = True
+pause = False
+v = 0, 0
+st_music = 'Music OFF'
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        if event.type == pygame.MOUSEBUTTONDOWN and c:
+            v = event.pos
+            if game1.rect.collidepoint(v):
+                for i in game:
+                    i.kill()
+                Border(5, 40, width - 5, 5)
+                Border(5, 5, 5, height - 5)
+                Border(width - 5, 5, width - 5, height - 5)
+                plat = pygame.sprite.Group()
+                ball1 = Ball(10, 335, 500)
+                plat1 = Plat(x, y)
+                generate_bricks()
+                c = False
+            if game2.rect.collidepoint(v):
+                running = False
+                all_sprites.empty()
+            if game3.rect.collidepoint(v):
+                if st_music == 'Music OFF':
+                    st_music = 'Music ON'
+                    pygame.mixer.music.rewind()
+                    pygame.mixer.music.play(-1)
+                else:
+                    pygame.mixer.music.stop()
+                    st_music = 'Music OFF'
+        if pygame.key.get_pressed()[pygame.K_ESCAPE]:
+            if tick - pause_tick > 50:
+                pause_tick = tick
+                if pause:
+                    pause = False
+                else:
+                    pause = True
+    if not c and not pause:
+        if len(bricks) == 0:
+            restart_game(False)
+        screen.fill((0, 0, 0))
+        draw_border()
+        draw_text()
+        draw_lives()
+    all_sprites.draw(screen)
+    all_sprites.update()
+    if c and running and not pause:
+        font = pygame.font.Font(None, 50)
+        font2 = pygame.font.Font(None, 30)
+        text = font.render('Play', 1, (0, 0, 0))
+        screen.blit(text, (363, 160))
+        text = font.render('Quit', 1, (0, 0, 0))
+        screen.blit(text, (363, 240))
+        text = font2.render(st_music, 0, (0, 0, 0))
+        screen.blit(text, (10, 560))
+        file = open("highscore.txt", "r")
+        hs = int(file.read())
+        file.close()
+        text = font.render('Highscore: ' + str(hs), 1, (255, 255, 255))
+        screen.blit(text, (500, 560))
+    if pause:
+        font = pygame.font.Font(None, 50)
+        text = font.render('Pause', 1, (255, 255, 255))
+        screen.blit(text, (350, 300))
+    p = pygame.mouse.get_pos()
+    clock.tick(lvl * 100 + 250)
+    tick += 1
+    pygame.display.flip()
